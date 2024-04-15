@@ -4,9 +4,6 @@ use structopt::StructOpt;
 
 #[derive(StructOpt, Debug, Clone)]
 struct CLI {
-    #[structopt(short, long)]
-    verbose: bool,
-
     #[structopt(short, long, default_value = "AAPL:NASDAQ,BBCA:IDX,TLKM:IDX")]
     codes: String,
 
