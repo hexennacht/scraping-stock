@@ -61,33 +61,34 @@ fn determine_stock_status(args: CLI) {
     let mut past_data: HashMap<String, Stock> = HashMap::new();
 
     loop {
-        args.clone().codes.split(",").for_each(|stock| {
-            let html_content = fetch_from_google_finance(stock).unwrap();
+        args.clone().codes.split(",").for_each(|share_code| {
+            let html_content = fetch_from_google_finance(share_code).unwrap();
+            let new_stock = parse_stock_value(html_content, share_code).unwrap();
     
-            let new_stock = parse_stock_value(html_content, stock).unwrap();
-    
-            let stock = past_data.get(new_stock.clone().symbol.as_str())
+            let stock = past_data.get(new_stock.symbol.as_str())
                 .map(|past_stock| {
                     let mut nstock = new_stock.clone();
-    
-                    if nstock.price > past_stock.price {
-                        nstock.status = "up".to_string();
-                    } else if nstock.price < past_stock.price {
-                        nstock.status = "down".to_string();
-                    } else {
-                        nstock.status = "same".to_string();
-                    }
-    
-                    return nstock;
+                    
+                    nstock.status = get_stock_valuation_status(&nstock, past_stock);
+
+                    nstock
                 })
-                .unwrap_or(new_stock.clone());
+                .unwrap_or(new_stock);
     
-            past_data.insert(new_stock.clone().symbol.clone(), new_stock);
+            past_data.insert(share_code.to_string(), stock.clone());
     
             println!("{:?}", stock);
         });
 
         std::thread::sleep(std::time::Duration::from_secs(args.interval));
+    }
+}
+
+fn get_stock_valuation_status(nstock: &Stock, past_stock: &Stock) -> String {
+    match nstock.price.partial_cmp(&past_stock.price) {
+        Some(std::cmp::Ordering::Greater) => "up".to_string(),
+        Some(std::cmp::Ordering::Less) => "down".to_string(),
+        _ => "same".to_string(),
     }
 }
 
