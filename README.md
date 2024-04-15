@@ -10,3 +10,5 @@ devbox install
 devbox shell
 cargo run --package scraping-stock --bin scraping-stock
 ```
+
+![Sample](screen-shoot.png)
