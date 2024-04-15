@@ -64,7 +64,7 @@ pub fn fetch_stock_price() {
 }
 
 fn async_determine_stock_status(args: &CLI) {
-    let mut data: Arc<RwLock<HashMap<String, Stock>>> = Arc::new(RwLock::new(HashMap::new()));
+    let data: Arc<RwLock<HashMap<String, Stock>>> = Arc::new(RwLock::new(HashMap::new()));
 
     loop {
         let cloned_args: CLI = args.clone();
@@ -108,21 +108,15 @@ fn determine_stock_status(args: CLI) {
     loop {
         args.clone().codes.split(",").for_each(|share_code| {
             let html_content = fetch_from_google_finance(share_code).unwrap();
-            let new_stock = parse_stock_value(html_content, share_code).unwrap();
+            let mut new_stock = parse_stock_value(html_content, share_code).unwrap();
     
-            let stock = past_data.get(new_stock.symbol.as_str())
-                .map(|past_stock| {
-                    let mut nstock = new_stock.clone();
-                    
-                    nstock.status = get_stock_valuation_status(&nstock, past_stock);
-
-                    println!("{:?}", nstock);
-
-                    nstock
-                })
-                .unwrap_or(new_stock);
+            new_stock.status = match past_data.get(share_code) {
+                Some(past) => get_stock_valuation_status(&new_stock, past),
+                None => "up".to_string(),
+            };
     
-            past_data.insert(share_code.to_string(), stock.clone());    
+            println!("New Status = {:?}", new_stock);
+            past_data.insert(share_code.to_string(), new_stock);    
         });
 
         std::thread::sleep(std::time::Duration::from_secs(args.interval));
