@@ -58,8 +58,8 @@ pub fn fetch_stock_price() {
     let args = CLI::from_args();
 
     match args.use_async {
-        true => determine_stock_status(args),
-        false => async_determine_stock_status(&args),
+        true => async_determine_stock_status(&args),
+        false => determine_stock_status(args),
     }
 }
 
