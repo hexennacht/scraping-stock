@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, fmt::{self, Debug}};
+use std::{collections::HashMap, error::Error, fmt::{self, Debug}, sync::{Arc, RwLock}};
 use structopt::StructOpt;
 
 
@@ -9,9 +9,12 @@ struct CLI {
 
     #[structopt(short, long, default_value = "10")]
     interval: u64,
+
+    #[structopt(short, long)]
+    use_async: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct Stock {
     symbol: String,
     company_name: String,
@@ -54,7 +57,49 @@ impl Error for StockError {}
 pub fn fetch_stock_price() {
     let args = CLI::from_args();
 
-    determine_stock_status(args);
+    match args.use_async {
+        true => determine_stock_status(args),
+        false => async_determine_stock_status(&args),
+    }
+}
+
+fn async_determine_stock_status(args: &CLI) {
+    let mut data: Arc<RwLock<HashMap<String, Stock>>> = Arc::new(RwLock::new(HashMap::new()));
+
+    loop {
+        let cloned_args: CLI = args.clone();
+        let codes = cloned_args.codes.split(",").collect::<Vec<&str>>().into_iter().map(|code| {
+            code.to_string()
+        }).collect::<Vec<String>>();
+
+        for share_code in codes {
+            let local_data = Arc::clone(&data);
+
+            std::thread::spawn(move || {
+                let html_content = fetch_from_google_finance(share_code.as_str()).unwrap();
+                let mut new_stock = parse_stock_value(html_content, share_code.as_str()).unwrap();
+                let default = &Stock::new("".to_string(), "".to_string(), 0f64, "".to_string());
+
+                let past_stock = local_data.clone()
+                    .read()
+                    .unwrap()
+                    .get(share_code.as_str())
+                    .unwrap_or(default)
+                    .clone();
+
+                new_stock.status = get_stock_valuation_status(&new_stock.clone(), &past_stock);
+                
+                local_data.write().unwrap().insert(share_code, new_stock.clone());
+
+                println!("New status = {:?}", new_stock.clone());
+
+                new_stock
+            });
+        }
+
+        std::thread::sleep(std::time::Duration::from_secs(args.interval));
+    }
+
 }
 
 fn determine_stock_status(args: CLI) {
@@ -71,13 +116,13 @@ fn determine_stock_status(args: CLI) {
                     
                     nstock.status = get_stock_valuation_status(&nstock, past_stock);
 
+                    println!("{:?}", nstock);
+
                     nstock
                 })
                 .unwrap_or(new_stock);
     
-            past_data.insert(share_code.to_string(), stock.clone());
-    
-            println!("{:?}", stock);
+            past_data.insert(share_code.to_string(), stock.clone());    
         });
 
         std::thread::sleep(std::time::Duration::from_secs(args.interval));
