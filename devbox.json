@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetpack-io/devbox/0.10.3/.schema/devbox.schema.json",
+  "packages": [
+    "rustup@latest",
+    "libiconv@latest"
+  ],
+  "env": {
+    "PROJECT_DIR": "$PWD"
+  },
+  "shell": {
+    "init_hook": [
+      ". conf/set-env.sh",
+      "rustup default stable",
+      "cargo fetch"
+    ],
+    "scripts": {
+      "build-docs": "cargo doc",
+      "start": "cargo run",
+      "run_test": [
+        "cargo test -- --show-output"
+      ]
+    }
+  }
+}
